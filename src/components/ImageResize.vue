@@ -7,6 +7,7 @@ import { defineComponent } from 'vue'
  */
 export interface IElectronAPI {
   saveFile: (fileDir: string, fileName: string, data: string) => Promise<string>
+  saveBase64File: (fileDir: string, fileName: string, data: string) => Promise<string>
 }
 declare global {
   interface Window {
@@ -33,6 +34,8 @@ export default defineComponent({
       image: null,
       // 出力パス
       outputPath: '',
+      // 表示メッセージ
+      message: '',
     }
   },
   computed: {},
@@ -75,6 +78,7 @@ export default defineComponent({
     // 画像幅変更
     onChangeWidthValue(e: any) {
       if (!this.image) {
+        this.imageWidth = 0
         return
       }
       let inputValue = e.target.value
@@ -90,6 +94,7 @@ export default defineComponent({
     },
     onChangeHeightValue(e: any) {
       if (!this.image) {
+        this.imageHeight = 0
         return
       }
       let inputValue = e.target.value
@@ -117,12 +122,41 @@ export default defineComponent({
       const base64 = canvas.toDataURL('image/png')
       return base64
     },
+    // リサイズした画像ファイルを保存
     async onSaveFile() {
-      // TODO テストでファイル出力
-      console.log('onSaveFile')
-      if (window.electronAPI) {
-        window.electronAPI.saveFile('/Users/plasma', 'test.txt', 'testtest').then((message) => console.log(message))
+      if (!this.image) {
+        this.message = '画像を読み込んでいません'
+        return
       }
+      if (!this.outputPath) {
+        this.message = '出力フォルダが定義されていません'
+        return
+      }
+      this.message = ''
+      if (window.electronAPI) {
+        const outputPath = this.outputPath
+        const fileName = this.getYYYYMMDD_HHMMSS() + '.png'
+        const data = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
+        window.electronAPI.saveBase64File(outputPath, fileName, data).then((message) => (this.message = message))
+      }
+    },
+    getYYYYMMDD_HHMMSS() {
+      const currentDate = new Date()
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+      const day = currentDate.getDate()
+      const hour = currentDate.getHours()
+      const min = currentDate.getMinutes()
+      const sec = currentDate.getSeconds()
+      const date =
+        year +
+        String(month).padStart(2, '0') +
+        String(day).padStart(2, '0') +
+        '_' +
+        String(hour).padStart(2, '0') +
+        String(min).padStart(2, '0') +
+        String(sec).padStart(2, '0')
+      return date
     },
   },
 })
@@ -162,9 +196,10 @@ export default defineComponent({
       </div>
     </div>
     <div class="container-item output-file-area">
-      <input class="output-file-value" type="text" />
+      <input class="output-file-value" type="text" placeholder="出力フォルダ" v-model="outputPath" />
       <button class="output-file-button" v-on:click="onSaveFile">出力</button>
     </div>
+    <div class="container-item">{{ message }}</div>
   </div>
 </template>
 

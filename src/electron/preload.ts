@@ -6,4 +6,6 @@ const { ipcRenderer, contextBridge } = require('electron')
 contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (fileDir: string, fileName: string, data: string) =>
     ipcRenderer.invoke('saveFile', fileDir, fileName, data),
+  saveBase64File: (fileDir: string, fileName: string, data: string) =>
+    ipcRenderer.invoke('saveBase64File', fileDir, fileName, data),
 })

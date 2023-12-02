@@ -39,13 +39,33 @@ ipcMain.handle('saveFile', async (event, fileDir, fileName, data) => {
   try {
     fs.statSync(fileDir)
   } catch (e) {
-    return `パスが存在しません => ${fileDir}`
+    return `フォルダが存在しません => ${fileDir}`
   }
 
   // 保存処理
   const outputFilePath = path.join(fileDir, fileName)
   try {
     fs.writeFileSync(outputFilePath, data)
+  } catch (e) {
+    return `ファイルの保存に失敗しました => ${outputFilePath}`
+  }
+  return `ファイルを保存しました => ${outputFilePath}`
+})
+
+// base64ファイル保存処理
+ipcMain.handle('saveBase64File', async (event, fileDir, fileName, data) => {
+  // 存在チェック
+  try {
+    fs.statSync(fileDir)
+  } catch (e) {
+    return `フォルダが存在しません => ${fileDir}`
+  }
+
+  // 保存処理
+  const base64Data = data.replace(/^data:image\/png;base64,/, '')
+  const outputFilePath = path.join(fileDir, fileName)
+  try {
+    fs.writeFileSync(outputFilePath, base64Data, 'base64')
   } catch (e) {
     return `ファイルの保存に失敗しました => ${outputFilePath}`
   }
