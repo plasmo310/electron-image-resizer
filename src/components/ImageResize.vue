@@ -1,6 +1,22 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
 
+/**
+ * Electronメインプロセス側に定義した処理
+ * windowオブジェクトに設定しているため、型定義を拡張する必要がある
+ */
+export interface IElectronAPI {
+  saveFile: (fileDir: string, fileName: string, data: string) => Promise<string>
+}
+declare global {
+  interface Window {
+    electronAPI: IElectronAPI
+  }
+}
+
+/**
+ * Vue処理定義
+ */
 export default defineComponent({
   data() {
     return {
@@ -9,6 +25,8 @@ export default defineComponent({
       imageHeight: 0,
       // 画像URL
       imageUrl: '',
+      image: null,
+      outputPath: '',
     }
   },
   computed: {},
@@ -28,6 +46,7 @@ export default defineComponent({
     onSetPreviewImage(image: File) {
       // URL設定
       this.imageUrl = URL.createObjectURL(image)
+      this.image = null
 
       // 画像読み込んで幅を設定
       const reader = new FileReader()
@@ -41,12 +60,40 @@ export default defineComponent({
           this.imageHeight = image.naturalHeight
           this.imageWidth = image.naturalWidth
         }
+        // this.image = image
       }
       reader.readAsDataURL(image)
+    },
+    // // リサイズ
+    // // https://qiita.com/komakomako/items/8efd4184f6d7cf1363f2
+    // onResizeImage(image: HTMLImageElement, width: number, height: number) {
+    //   const canvas = document.createElement('canvas')
+    //   canvas.width = width
+    //   canvas.height = height
+    //   const context = canvas.getContext('2d')
+    //   context.drawImage(image, 0, 0, width, height)
+
+    //   const base64 = canvas.toDataURL('image/png')
+    //   var bin = atob(base64.split('base64,')[1])
+    //   var binLength = bin.length
+    //   var binArray = new Uint8Array(binLength)
+    //   for (let i = 0; i < binLength; i++) {
+    //     binArray[i] = bin.charCodeAt(i)
+    //   }
+    //   var blob = new Blob([binArray], { type: 'image/png' })
+    //   return canvas.toDataURL('image/png')
+    // },
+    async onSaveFile() {
+      // TODO テストでファイル出力
+      console.log('onSaveFile')
+      if (window.electronAPI) {
+        window.electronAPI.saveFile('/Users/plasma', 'test.txt', 'testtest').then((message) => console.log(message))
+      }
     },
   },
 })
 </script>
+
 <template>
   <div class="container">
     <div class="container-item image-area" @dragover.prevent @drop.prevent="onDropFile">
@@ -62,7 +109,7 @@ export default defineComponent({
     </div>
     <div class="container-item output-file-area">
       <input class="output-file-value" type="text" />
-      <button class="output-file-button">出力</button>
+      <button class="output-file-button" v-on:click="onSaveFile">出力</button>
     </div>
   </div>
 </template>
