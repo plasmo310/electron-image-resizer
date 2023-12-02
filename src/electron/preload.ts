@@ -4,7 +4,6 @@ const { ipcRenderer, contextBridge } = require('electron')
 // コンテキストを分離してwindowオブジェクトに設定する
 // https://www.electronjs.org/ja/docs/latest/tutorial/context-isolation
 contextBridge.exposeInMainWorld('electronAPI', {
-  testFunc: () => ipcRenderer.invoke('testFunc'),
   saveFile: (fileDir: string, fileName: string, data: string) =>
     ipcRenderer.invoke('saveFile', fileDir, fileName, data),
 })

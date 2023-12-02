@@ -14,6 +14,9 @@ declare global {
   }
 }
 
+// 画像最大サイズ
+const IMAGE_SIZE_MAX_VALUE = 1200
+
 /**
  * Vue処理定義
  */
@@ -23,9 +26,12 @@ export default defineComponent({
       // 画像サイズ
       imageWidth: 0,
       imageHeight: 0,
-      // 画像URL
-      imageUrl: '',
+      imageRatio: 0,
+      isKeepRatio: true,
+      // 画像データ
+      imageSrc: '',
       image: null,
+      // 出力パス
       outputPath: '',
     }
   },
@@ -45,7 +51,7 @@ export default defineComponent({
     // プレビュー画像の設定
     onSetPreviewImage(image: File) {
       // URL設定
-      this.imageUrl = URL.createObjectURL(image)
+      this.imageSrc = URL.createObjectURL(image)
       this.image = null
 
       // 画像読み込んで幅を設定
@@ -59,30 +65,58 @@ export default defineComponent({
         image.onload = () => {
           this.imageHeight = image.naturalHeight
           this.imageWidth = image.naturalWidth
+          // 横のサイズをベースに比率を計算
+          this.imageRatio = this.imageWidth / this.imageHeight
+          this.image = image
         }
-        // this.image = image
       }
       reader.readAsDataURL(image)
     },
-    // // リサイズ
-    // // https://qiita.com/komakomako/items/8efd4184f6d7cf1363f2
-    // onResizeImage(image: HTMLImageElement, width: number, height: number) {
-    //   const canvas = document.createElement('canvas')
-    //   canvas.width = width
-    //   canvas.height = height
-    //   const context = canvas.getContext('2d')
-    //   context.drawImage(image, 0, 0, width, height)
-
-    //   const base64 = canvas.toDataURL('image/png')
-    //   var bin = atob(base64.split('base64,')[1])
-    //   var binLength = bin.length
-    //   var binArray = new Uint8Array(binLength)
-    //   for (let i = 0; i < binLength; i++) {
-    //     binArray[i] = bin.charCodeAt(i)
-    //   }
-    //   var blob = new Blob([binArray], { type: 'image/png' })
-    //   return canvas.toDataURL('image/png')
-    // },
+    // 画像幅変更
+    onChangeWidthValue(e: any) {
+      if (!this.image) {
+        return
+      }
+      let inputValue = e.target.value
+      if (inputValue >= IMAGE_SIZE_MAX_VALUE) {
+        inputValue = IMAGE_SIZE_MAX_VALUE
+      }
+      this.imageWidth = inputValue
+      if (this.isKeepRatio) {
+        this.imageHeight = this.imageWidth / this.imageRatio
+      }
+      const base64 = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
+      this.imageSrc = base64
+    },
+    onChangeHeightValue(e: any) {
+      if (!this.image) {
+        return
+      }
+      let inputValue = e.target.value
+      if (inputValue >= IMAGE_SIZE_MAX_VALUE) {
+        inputValue = IMAGE_SIZE_MAX_VALUE
+      }
+      this.imageHeight = inputValue
+      if (this.isKeepRatio) {
+        this.imageWidth = this.imageHeight * this.imageRatio
+      }
+      const base64 = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
+      this.imageSrc = base64
+    },
+    // リサイズしたbase64データを取得
+    // https://qiita.com/komakomako/items/8efd4184f6d7cf1363f2
+    onGetResizeImageBase64(image: HTMLImageElement, width: number, height: number) {
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        return ''
+      }
+      context.drawImage(image, 0, 0, width, height)
+      const base64 = canvas.toDataURL('image/png')
+      return base64
+    },
     async onSaveFile() {
       // TODO テストでファイル出力
       console.log('onSaveFile')
@@ -97,15 +131,35 @@ export default defineComponent({
 <template>
   <div class="container">
     <div class="container-item image-area" @dragover.prevent @drop.prevent="onDropFile">
-      <img v-if:="imageUrl" class="image-item" :src="imageUrl" />
-      <div v-if:="!imageUrl" class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
+      <img v-if:="imageSrc" class="image-item" :src="imageSrc" />
+      <div v-if:="!imageSrc" class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
     </div>
     <div class="container-item size-info-area">
-      <input class="size-input-value-item" type="number" min="0" placeholder="width" v-model="imageWidth" />
+      <input
+        @input="onChangeWidthValue"
+        class="size-input-value-item"
+        type="number"
+        min="0"
+        maxlength="1200"
+        placeholder="width"
+        v-model.number="imageWidth"
+      />
       <span class="size-input-value-px">px</span>
       <div class="size-input-value-between">x</div>
-      <input class="size-input-value-item" type="number" min="0" placeholder="height" v-model="imageHeight" />
+      <input
+        @input="onChangeHeightValue"
+        class="size-input-value-item"
+        type="number"
+        min="0"
+        maxlength="1200"
+        placeholder="height"
+        v-model.number="imageHeight"
+      />
       <span class="size-input-value-px">px</span>
+      <div class="size-input-keep-ratio-area">
+        <input class="size-input-keep-ratio-check" type="checkbox" v-model="isKeepRatio" />
+        <label>縦横比<br />固定</label>
+      </div>
     </div>
     <div class="container-item output-file-area">
       <input class="output-file-value" type="text" />
@@ -153,7 +207,7 @@ input {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 80%;
+  width: 90%;
   height: 32px;
   margin-left: auto;
   margin-right: auto;
@@ -172,6 +226,18 @@ input {
   width: 80%;
   height: 100%;
   text-align: right;
+}
+.size-input-keep-ratio-area {
+  width: 240px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+}
+.size-input-keep-ratio-check {
+  height: 18px;
+  width: 18px;
+  margin-right: 6px;
 }
 /** 出力パスエリア */
 .output-file-area {
