@@ -2,8 +2,8 @@
   <div class="container">
     <div class="container-item image-area">
       <!-- TODO 読み込んだ画像を表示する -->
-      <!-- <img class="image-item" src="../assets/img/test_image.JPG" /> -->
-      <div class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
+      <img class="image-item" src="../assets/img/test_image.JPG" />
+      <!-- <div class="image-drop-box">画像をドラッグ＆ドロップしてください。</div> -->
     </div>
     <div class="container-item size-info-area">
       <input class="size-input-value-item" type="number" min="0" placeholder="width (px)" />
@@ -25,6 +25,7 @@ input {
   text-align: center;
   display: flex;
   flex-flow: column;
+  max-width: 600px;
 }
 .container-item {
   margin-bottom: 24px;
@@ -32,12 +33,13 @@ input {
 /** 画像エリア */
 .image-area {
   display: table;
-  height: 230px;
+  position: relative;
+  height: 280px;
   width: 100%;
   padding: 12px 0px;
 }
 .image-item {
-  max-width: 320px;
+  max-width: 100%;
   max-height: 280px;
 }
 .image-drop-box {
@@ -89,5 +91,6 @@ input {
   justify-content: center;
   align-items: center;
   margin-left: 12px;
+  box-shadow: 2px 2px 6px #555555;
 }
 </style>
