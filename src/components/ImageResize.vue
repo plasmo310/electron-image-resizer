@@ -183,7 +183,9 @@ input {
 }
 /** 画像エリア */
 .image-area {
-  display: table;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   position: relative;
   height: 280px;
   width: 100%;
@@ -194,10 +196,14 @@ input {
   max-height: 280px;
 }
 .image-drop-box {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   color: #777;
   border: 10px dashed #aaa;
   padding: 0px 12px;
-  display: table-cell;
   vertical-align: middle;
   text-align: center;
   border-radius: 8px;
