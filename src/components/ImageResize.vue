@@ -4,7 +4,11 @@ import { defineComponent } from 'vue'
 export default defineComponent({
   data() {
     return {
-      url: '', // 画像のURL
+      // 画像サイズ
+      imageWidth: 0,
+      imageHeight: 0,
+      // 画像URL
+      imageUrl: '',
     }
   },
   computed: {},
@@ -22,8 +26,23 @@ export default defineComponent({
     },
     // プレビュー画像の設定
     onSetPreviewImage(image: File) {
-      this.url = URL.createObjectURL(image)
-      console.log(this.url)
+      // URL設定
+      this.imageUrl = URL.createObjectURL(image)
+
+      // 画像読み込んで幅を設定
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        if (!reader.result || !(typeof reader.result == 'string')) {
+          return
+        }
+        let image = new Image()
+        image.src = reader.result
+        image.onload = () => {
+          this.imageHeight = image.naturalHeight
+          this.imageWidth = image.naturalWidth
+        }
+      }
+      reader.readAsDataURL(image)
     },
   },
 })
@@ -31,13 +50,15 @@ export default defineComponent({
 <template>
   <div class="container">
     <div class="container-item image-area" @dragover.prevent @drop.prevent="onDropFile">
-      <img v-if:="url" class="image-item" :src="url" />
-      <div v-if:="!url" class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
+      <img v-if:="imageUrl" class="image-item" :src="imageUrl" />
+      <div v-if:="!imageUrl" class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
     </div>
     <div class="container-item size-info-area">
-      <input class="size-input-value-item" type="number" min="0" placeholder="width (px)" />
+      <input class="size-input-value-item" type="number" min="0" placeholder="width" v-model="imageWidth" />
+      <span class="size-input-value-px">px</span>
       <div class="size-input-value-between">x</div>
-      <input class="size-input-value-item" type="number" min="0" placeholder="height (px)" />
+      <input class="size-input-value-item" type="number" min="0" placeholder="height" v-model="imageHeight" />
+      <span class="size-input-value-px">px</span>
     </div>
     <div class="container-item output-file-area">
       <input class="output-file-value" type="text" />
@@ -54,7 +75,7 @@ input {
   text-align: center;
   display: flex;
   flex-flow: column;
-  max-width: 600px;
+  max-width: 640px;
 }
 .container-item {
   margin-bottom: 24px;
@@ -90,6 +111,13 @@ input {
   margin-left: auto;
   margin-right: auto;
 }
+.size-input-value-px {
+  width: 40px;
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  margin-left: 8px;
+}
 .size-input-value-between {
   width: 80px;
 }
@@ -103,7 +131,7 @@ input {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
+  width: 90%;
   height: 32px;
   margin-left: auto;
   margin-right: auto;
