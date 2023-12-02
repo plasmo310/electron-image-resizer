@@ -1,9 +1,38 @@
+<script lang="ts">
+import { defineComponent } from 'vue'
+
+export default defineComponent({
+  data() {
+    return {
+      url: '', // 画像のURL
+    }
+  },
+  computed: {},
+  methods: {
+    // ファイルドロップ処理
+    onDropFile(event: DragEvent) {
+      if (!event?.dataTransfer) {
+        return
+      }
+      if (event.dataTransfer.files.length === 0) {
+        return
+      }
+      const file = event.dataTransfer.files[0]
+      this.onSetPreviewImage(file)
+    },
+    // プレビュー画像の設定
+    onSetPreviewImage(image: File) {
+      this.url = URL.createObjectURL(image)
+      console.log(this.url)
+    },
+  },
+})
+</script>
 <template>
   <div class="container">
-    <div class="container-item image-area">
-      <!-- TODO 読み込んだ画像を表示する -->
-      <img class="image-item" src="../assets/img/test_image.JPG" />
-      <!-- <div class="image-drop-box">画像をドラッグ＆ドロップしてください。</div> -->
+    <div class="container-item image-area" @dragover.prevent @drop.prevent="onDropFile">
+      <img v-if:="url" class="image-item" :src="url" />
+      <div v-if:="!url" class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
     </div>
     <div class="container-item size-info-area">
       <input class="size-input-value-item" type="number" min="0" placeholder="width (px)" />
