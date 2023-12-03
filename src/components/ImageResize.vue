@@ -7,7 +7,8 @@ import { defineComponent } from 'vue'
  */
 export interface IElectronAPI {
   saveFile: (fileDir: string, fileName: string, data: string) => Promise<string>
-  saveBase64File: (fileDir: string, fileName: string, data: string) => Promise<string>
+  savePngFile: (fileDir: string, fileName: string, data: string) => Promise<string>
+  copyFile: (fromPath: string, toPath: string) => Promise<string>
   saveStoreData: (key: string, value: any) => Promise<void>
   loadStoreData: (key: string) => Promise<any>
   getAllStoreData: () => Promise<void>
@@ -16,6 +17,9 @@ export interface IElectronAPI {
 declare global {
   interface Window {
     electronAPI: IElectronAPI
+  }
+  interface File {
+    path: string
   }
 }
 
@@ -42,8 +46,12 @@ export default defineComponent({
       imageWidth: 0,
       imageHeight: 0,
       imageRatio: 0,
+      // 画像の縦横比固定するか？
       isKeepRatio: true,
       // 画像データ
+      imageName: '', // except imageExtention
+      imageExtention: '', // png or gif
+      imagePath: '',
       imageSrc: '',
       image: null,
       // 出力パス
@@ -85,10 +93,19 @@ export default defineComponent({
     /**
      * プレビュー画像の設定
      */
-    onSetPreviewImage(image: File) {
-      // URL設定
-      this.imageSrc = URL.createObjectURL(image)
+    onSetPreviewImage(file: File) {
+      // 画像情報設定
+      this.imageName = file.name
+      this.imageExtention = file.name.split('.').pop()
+      this.imagePath = file.path
+      this.imageSrc = URL.createObjectURL(file)
       this.image = null
+
+      // gifはリサイズできないメッセージ
+      this.message = ''
+      if (this.imageExtention == 'gif') {
+        this.message = 'gif形式のファイルはリサイズに対応していません'
+      }
 
       // 画像読み込んで幅を設定
       const reader = new FileReader()
@@ -106,7 +123,7 @@ export default defineComponent({
           this.image = image
         }
       }
-      reader.readAsDataURL(image)
+      reader.readAsDataURL(file)
     },
     /**
      * 画像幅変更
@@ -147,8 +164,6 @@ export default defineComponent({
      * チェックボックス変更
      */
     onChangeIsKeepRatio(e: any) {
-      console.log('change')
-      console.log(e.target.checked)
       if (window.electronAPI) {
         let inputValue = e.target.checked
         window.electronAPI.saveStoreData(StoreDataKey.IsKeepRatio, inputValue)
@@ -191,31 +206,28 @@ export default defineComponent({
         this.message = '出力フォルダが定義されていません'
         return
       }
-      this.message = ''
-      if (window.electronAPI) {
-        const outputPath = this.outputPath
-        const fileName = this.getYYYYMMDD_HHMMSS() + '.png'
-        const data = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
-        window.electronAPI.saveBase64File(outputPath, fileName, data).then((message) => (this.message = message))
+      if (!window.electronAPI) {
+        this.message = 'ブラウザ上でファイル出力はサポートしていません'
+        return
       }
-    },
-    getYYYYMMDD_HHMMSS() {
-      const currentDate = new Date()
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth() + 1
-      const day = currentDate.getDate()
-      const hour = currentDate.getHours()
-      const min = currentDate.getMinutes()
-      const sec = currentDate.getSeconds()
-      const date =
-        year +
-        String(month).padStart(2, '0') +
-        String(day).padStart(2, '0') +
-        '_' +
-        String(hour).padStart(2, '0') +
-        String(min).padStart(2, '0') +
-        String(sec).padStart(2, '0')
-      return date
+
+      this.message = ''
+      let outputDirPath: string = this.outputPath
+      if (outputDirPath.endsWith('/')) {
+        outputDirPath = outputDirPath.slice(0, -1)
+      }
+      if (this.imageExtention == 'gif') {
+        // gifはリサイズできないのでファイルコピー
+        const fromPath = this.imagePath
+        const fileName = this.imageName.split('.')[0] + '.gif'
+        const toPath = outputDirPath + '/' + fileName
+        window.electronAPI.copyFile(fromPath, toPath).then((message) => (this.message = message))
+      } else {
+        // それ以外はpng形式でリサイズして保存
+        const fileName = this.imageName.split('.')[0] + '.png'
+        const data = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
+        window.electronAPI.savePngFile(outputDirPath, fileName, data).then((message) => (this.message = message))
+      }
     },
   },
 })
@@ -227,6 +239,7 @@ export default defineComponent({
       <img v-if:="imageSrc" class="image-item" :src="imageSrc" />
       <div v-if:="!imageSrc" class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
     </div>
+    <label class="container-item image-name-area">{{ imageName }}</label>
     <div class="container-item size-info-area">
       <input
         @input="onChangeWidthValue"
@@ -236,6 +249,7 @@ export default defineComponent({
         maxlength="1200"
         placeholder="width"
         v-model.number="imageWidth"
+        :disabled="imageExtention == 'gif'"
       />
       <span class="size-input-value-px">px</span>
       <div class="size-input-value-between">x</div>
@@ -247,6 +261,7 @@ export default defineComponent({
         maxlength="1200"
         placeholder="height"
         v-model.number="imageHeight"
+        :disabled="imageExtention == 'gif'"
       />
       <span class="size-input-value-px">px</span>
       <div class="size-input-keep-ratio-area">
@@ -306,6 +321,12 @@ input {
   vertical-align: middle;
   text-align: center;
   border-radius: 8px;
+}
+.image-name-area {
+  height: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 /** サイズ情報 */
 .size-info-area {

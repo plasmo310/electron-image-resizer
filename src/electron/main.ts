@@ -76,14 +76,12 @@ const fs = require('fs')
  * ファイル保存処理
  */
 ipcMain.handle('saveFile', async (event, fileDir, fileName, data) => {
-  // 存在チェック
   try {
     fs.statSync(fileDir)
   } catch (e) {
     return `フォルダが存在しません => ${fileDir}`
   }
 
-  // 保存処理
   const outputFilePath = path.join(fileDir, fileName)
   try {
     fs.writeFileSync(outputFilePath, data)
@@ -94,17 +92,15 @@ ipcMain.handle('saveFile', async (event, fileDir, fileName, data) => {
 })
 
 /**
- * base64ファイル保存処理
+ * pngファイル保存処理
  */
-ipcMain.handle('saveBase64File', async (event, fileDir: string, fileName: string, data: string) => {
-  // 存在チェック
+ipcMain.handle('savePngFile', async (event, fileDir: string, fileName: string, data: string) => {
   try {
     fs.statSync(fileDir)
   } catch (e) {
     return `フォルダが存在しません => ${fileDir}`
   }
 
-  // 保存処理
   const base64Data = data.replace(/^data:image\/png;base64,/, '')
   const outputFilePath = path.join(fileDir, fileName)
   try {
@@ -113,6 +109,25 @@ ipcMain.handle('saveBase64File', async (event, fileDir: string, fileName: string
     return `ファイルの保存に失敗しました => ${outputFilePath}`
   }
   return `ファイルを保存しました => ${outputFilePath}`
+})
+
+/**
+ * ファイルコピー処理 (gifファイル用)
+ */
+ipcMain.handle('copyFile', async (event, fromPath: string, toPath: string) => {
+  try {
+    fs.statSync(fromPath)
+  } catch (e) {
+    return `ファイルが存在しません => ${fromPath}`
+  }
+
+  try {
+    fs.copyFileSync(fromPath, toPath)
+  } catch (e) {
+    console.log(e)
+    return `ファイルの保存に失敗しました => ${toPath}`
+  }
+  return `ファイルを保存しました => ${toPath}`
 })
 
 /** データ保存関連 */
