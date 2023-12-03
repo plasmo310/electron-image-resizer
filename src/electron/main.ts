@@ -1,16 +1,41 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import * as path from 'path'
 
+// 保存データ
+const Store = require('electron-store')
+const store = new Store()
+
+const StoreDataKey = {
+  WindowPosition: 'WindowPosition',
+  WindowSize: 'WindowSize',
+}
+
+const DefaultWindowSize = {
+  width: 800,
+  height: 600,
+}
+
 function createWindow() {
+  const windowSize = store.get(StoreDataKey.WindowSize) || [DefaultWindowSize.width, DefaultWindowSize.height]
+  const windowPosition = store.get(StoreDataKey.WindowPosition) || getCenterPosition()
+
   const mainWindow = new BrowserWindow({
-    height: 600,
-    width: 800,
+    width: windowSize[0],
+    height: windowSize[1],
+    x: windowPosition[0],
+    y: windowPosition[1],
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
   })
 
   mainWindow.loadFile(path.join(__dirname, '../index.html'))
+
+  mainWindow.on('close', () => {
+    // ウィンドウ情報を保存
+    store.set(StoreDataKey.WindowPosition, mainWindow.getPosition())
+    store.set(StoreDataKey.WindowSize, mainWindow.getSize())
+  })
 
   // Open the DevTools.
   // mainWindow.webContents.openDevTools();
@@ -30,10 +55,26 @@ app.on('window-all-closed', () => {
   }
 })
 
+/**
+ * ウィンドウの中央の座標を返却
+ *
+ * @return {array}
+ */
+function getCenterPosition() {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  const x = Math.floor((width - DefaultWindowSize.width) / 2)
+  const y = Math.floor((height - DefaultWindowSize.height) / 2)
+  return [x, y]
+}
+
 // ----- レンダラープロセスから呼び出される処理 -----
+
+/** ファイル保存関連 */
 const fs = require('fs')
 
-// ファイル保存処理
+/**
+ * ファイル保存処理
+ */
 ipcMain.handle('saveFile', async (event, fileDir, fileName, data) => {
   // 存在チェック
   try {
@@ -52,8 +93,10 @@ ipcMain.handle('saveFile', async (event, fileDir, fileName, data) => {
   return `ファイルを保存しました => ${outputFilePath}`
 })
 
-// base64ファイル保存処理
-ipcMain.handle('saveBase64File', async (event, fileDir, fileName, data) => {
+/**
+ * base64ファイル保存処理
+ */
+ipcMain.handle('saveBase64File', async (event, fileDir: string, fileName: string, data: string) => {
   // 存在チェック
   try {
     fs.statSync(fileDir)
@@ -70,4 +113,21 @@ ipcMain.handle('saveBase64File', async (event, fileDir, fileName, data) => {
     return `ファイルの保存に失敗しました => ${outputFilePath}`
   }
   return `ファイルを保存しました => ${outputFilePath}`
+})
+
+/** データ保存関連 */
+ipcMain.handle('saveStoreData', async (event, key: string, value: any) => {
+  store.set(key, value)
+})
+
+ipcMain.handle('loadStoreData', async (event, key: string) => {
+  return store.get(key)
+})
+
+ipcMain.handle('getAllStoreData', async (event) => {
+  return store
+})
+
+ipcMain.handle('clearStoreData', async (event) => {
+  store.clear()
 })

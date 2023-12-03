@@ -8,4 +8,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('saveFile', fileDir, fileName, data),
   saveBase64File: (fileDir: string, fileName: string, data: string) =>
     ipcRenderer.invoke('saveBase64File', fileDir, fileName, data),
+  saveStoreData: (key: string, value: any) => ipcRenderer.invoke('saveStoreData', key, value),
+  loadStoreData: (key: string) => ipcRenderer.invoke('loadStoreData', key),
+  getAllStoreData: () => ipcRenderer.invoke('getAllStoreData'),
+  clearStoreData: () => ipcRenderer.invoke('clearStoreData'),
 })

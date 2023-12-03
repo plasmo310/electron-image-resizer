@@ -8,6 +8,10 @@ import { defineComponent } from 'vue'
 export interface IElectronAPI {
   saveFile: (fileDir: string, fileName: string, data: string) => Promise<string>
   saveBase64File: (fileDir: string, fileName: string, data: string) => Promise<string>
+  saveStoreData: (key: string, value: any) => Promise<void>
+  loadStoreData: (key: string) => Promise<any>
+  getAllStoreData: () => Promise<void>
+  clearStoreData: () => Promise<void>
 }
 declare global {
   interface Window {
@@ -15,8 +19,18 @@ declare global {
   }
 }
 
-// 画像最大サイズ
+/**
+ * 画像最大サイズ
+ */
 const IMAGE_SIZE_MAX_VALUE = 1200
+
+/**
+ * 保存データのkey
+ */
+const StoreDataKey = {
+  IsKeepRatio: 'IsKeepRatio',
+  OutputPath: 'OutputPath',
+}
 
 /**
  * Vue処理定義
@@ -38,9 +52,26 @@ export default defineComponent({
       message: '',
     }
   },
+  mounted() {
+    // 保存されているデータがあれば設定する
+    if (window.electronAPI) {
+      window.electronAPI.loadStoreData(StoreDataKey.IsKeepRatio).then((storeData) => {
+        if (storeData != undefined) {
+          this.isKeepRatio = storeData
+        }
+      })
+      window.electronAPI.loadStoreData(StoreDataKey.OutputPath).then((storeData) => {
+        if (storeData != undefined) {
+          this.outputPath = storeData
+        }
+      })
+    }
+  },
   computed: {},
   methods: {
-    // ファイルドロップ処理
+    /**
+     * ファイルドロップ処理
+     */
     onDropFile(event: DragEvent) {
       if (!event?.dataTransfer) {
         return
@@ -51,7 +82,9 @@ export default defineComponent({
       const file = event.dataTransfer.files[0]
       this.onSetPreviewImage(file)
     },
-    // プレビュー画像の設定
+    /**
+     * プレビュー画像の設定
+     */
     onSetPreviewImage(image: File) {
       // URL設定
       this.imageSrc = URL.createObjectURL(image)
@@ -75,7 +108,9 @@ export default defineComponent({
       }
       reader.readAsDataURL(image)
     },
-    // 画像幅変更
+    /**
+     * 画像幅変更
+     */
     onChangeWidthValue(e: any) {
       if (!this.image) {
         this.imageWidth = 0
@@ -108,8 +143,30 @@ export default defineComponent({
       const base64 = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
       this.imageSrc = base64
     },
-    // リサイズしたbase64データを取得
-    // https://qiita.com/komakomako/items/8efd4184f6d7cf1363f2
+    /**
+     * チェックボックス変更
+     */
+    onChangeIsKeepRatio(e: any) {
+      console.log('change')
+      console.log(e.target.checked)
+      if (window.electronAPI) {
+        let inputValue = e.target.checked
+        window.electronAPI.saveStoreData(StoreDataKey.IsKeepRatio, inputValue)
+      }
+    },
+    /**
+     * 出力パス変更
+     */
+    onChangeOutputPath(e: any) {
+      if (window.electronAPI) {
+        let inputValue = e.target.value
+        window.electronAPI.saveStoreData(StoreDataKey.OutputPath, inputValue)
+      }
+    },
+    /**
+     * リサイズしたbase64データを取得
+     * https://qiita.com/komakomako/items/8efd4184f6d7cf1363f2
+     */
     onGetResizeImageBase64(image: HTMLImageElement, width: number, height: number) {
       const canvas = document.createElement('canvas')
       canvas.width = width
@@ -122,7 +179,9 @@ export default defineComponent({
       const base64 = canvas.toDataURL('image/png')
       return base64
     },
-    // リサイズした画像ファイルを保存
+    /**
+     * リサイズした画像ファイルを保存
+     */
     async onSaveFile() {
       if (!this.image) {
         this.message = '画像を読み込んでいません'
@@ -191,12 +250,18 @@ export default defineComponent({
       />
       <span class="size-input-value-px">px</span>
       <div class="size-input-keep-ratio-area">
-        <input class="size-input-keep-ratio-check" type="checkbox" v-model="isKeepRatio" />
+        <input @input="onChangeIsKeepRatio" class="size-input-keep-ratio-check" type="checkbox" v-model="isKeepRatio" />
         <label>縦横比<br />固定</label>
       </div>
     </div>
     <div class="container-item output-file-area">
-      <input class="output-file-value" type="text" placeholder="出力フォルダ" v-model="outputPath" />
+      <input
+        @input="onChangeOutputPath"
+        class="output-file-value"
+        type="text"
+        placeholder="出力フォルダ"
+        v-model="outputPath"
+      />
       <button class="output-file-button" v-on:click="onSaveFile">出力</button>
     </div>
     <div class="container-item message-area">{{ message }}</div>
