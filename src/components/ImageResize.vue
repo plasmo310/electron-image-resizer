@@ -199,7 +199,7 @@ export default defineComponent({
       <input class="output-file-value" type="text" placeholder="出力フォルダ" v-model="outputPath" />
       <button class="output-file-button" v-on:click="onSaveFile">出力</button>
     </div>
-    <div class="container-item">{{ message }}</div>
+    <div class="container-item message-area">{{ message }}</div>
   </div>
 </template>
 
@@ -224,7 +224,6 @@ input {
   position: relative;
   height: 280px;
   width: 100%;
-  padding: 12px 0px;
 }
 .image-item {
   max-width: 100%;
@@ -232,7 +231,7 @@ input {
 }
 .image-drop-box {
   width: 100%;
-  height: 100%;
+  height: 90%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -303,5 +302,9 @@ input {
   align-items: center;
   margin-left: 12px;
   box-shadow: 2px 2px 6px #555555;
+}
+/** メッセージ */
+.message-area {
+  height: 20px;
 }
 </style>
