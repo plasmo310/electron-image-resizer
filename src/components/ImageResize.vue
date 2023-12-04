@@ -1,5 +1,5 @@
-<script lang="ts">
-import { defineComponent } from 'vue'
+<script setup lang="ts">
+import { defineComponent, onMounted, reactive, Ref, ref } from 'vue'
 
 /**
  * Electronメインプロセス側に定義した処理
@@ -23,223 +23,232 @@ declare global {
   }
 }
 
-/**
- * 画像最大サイズ
- */
-const IMAGE_SIZE_MAX_VALUE = 1200
-
-/**
- * 保存データのkey
- */
 const StoreDataKey = {
   IsKeepRatio: 'IsKeepRatio',
   OutputPath: 'OutputPath',
 }
 
 /**
- * Vue処理定義
+ * 保存データロード処理
  */
-export default defineComponent({
-  data() {
-    return {
-      // 画像サイズ
-      imageWidth: 0,
-      imageHeight: 0,
-      imageRatio: 0,
-      // 画像の縦横比固定するか？
-      isKeepRatio: true,
-      // 画像データ
-      imageName: '', // except imageExtention
-      imageExtention: '', // png or gif
-      imagePath: '',
-      imageSrc: '',
-      image: null,
-      // 出力パス
-      outputPath: '',
-      // 表示メッセージ
-      message: '',
-    }
-  },
-  mounted() {
-    // 保存されているデータがあれば設定する
-    if (window.electronAPI) {
-      window.electronAPI.loadStoreData(StoreDataKey.IsKeepRatio).then((storeData) => {
-        if (storeData != undefined) {
-          this.isKeepRatio = storeData
-        }
-      })
-      window.electronAPI.loadStoreData(StoreDataKey.OutputPath).then((storeData) => {
-        if (storeData != undefined) {
-          this.outputPath = storeData
-        }
-      })
-    }
-  },
-  computed: {},
-  methods: {
-    /**
-     * ファイルドロップ処理
-     */
-    onDropFile(event: DragEvent) {
-      if (!event?.dataTransfer) {
-        return
+const loadStoreData = () => {
+  // 保存されているデータがあれば設定する
+  if (window.electronAPI) {
+    window.electronAPI.loadStoreData(StoreDataKey.IsKeepRatio).then((storeData) => {
+      if (storeData != undefined) {
+        isKeepRatio.value = storeData
       }
-      if (event.dataTransfer.files.length === 0) {
-        return
+    })
+    window.electronAPI.loadStoreData(StoreDataKey.OutputPath).then((storeData) => {
+      if (storeData != undefined) {
+        outputPath.value = storeData
       }
-      const file = event.dataTransfer.files[0]
-      this.onSetPreviewImage(file)
-    },
-    /**
-     * プレビュー画像の設定
-     */
-    onSetPreviewImage(file: File) {
-      // 画像情報設定
-      this.imageName = file.name
-      this.imageExtention = file.name.split('.').pop()
-      this.imagePath = file.path
-      this.imageSrc = URL.createObjectURL(file)
-      this.image = null
+    })
+  }
+}
 
-      // gifはリサイズできないメッセージ
-      this.message = ''
-      if (this.imageExtention == 'gif') {
-        this.message = 'gif形式のファイルはリサイズに対応していません'
-      }
-
-      // 画像読み込んで幅を設定
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        if (!reader.result || !(typeof reader.result == 'string')) {
-          return
-        }
-        let image = new Image()
-        image.src = reader.result
-        image.onload = () => {
-          this.imageHeight = image.naturalHeight
-          this.imageWidth = image.naturalWidth
-          // 横のサイズをベースに比率を計算
-          this.imageRatio = this.imageWidth / this.imageHeight
-          this.image = image
-        }
-      }
-      reader.readAsDataURL(file)
-    },
-    /**
-     * 画像幅変更
-     */
-    onChangeWidthValue(e: any) {
-      if (!this.image) {
-        this.imageWidth = 0
-        return
-      }
-      let inputValue = e.target.value
-      if (inputValue >= IMAGE_SIZE_MAX_VALUE) {
-        inputValue = IMAGE_SIZE_MAX_VALUE
-      }
-      this.imageWidth = inputValue
-      if (this.isKeepRatio) {
-        this.imageHeight = this.imageWidth / this.imageRatio
-      }
-      const base64 = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
-      this.imageSrc = base64
-    },
-    onChangeHeightValue(e: any) {
-      if (!this.image) {
-        this.imageHeight = 0
-        return
-      }
-      let inputValue = e.target.value
-      if (inputValue >= IMAGE_SIZE_MAX_VALUE) {
-        inputValue = IMAGE_SIZE_MAX_VALUE
-      }
-      this.imageHeight = inputValue
-      if (this.isKeepRatio) {
-        this.imageWidth = this.imageHeight * this.imageRatio
-      }
-      const base64 = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
-      this.imageSrc = base64
-    },
-    /**
-     * チェックボックス変更
-     */
-    onChangeIsKeepRatio(e: any) {
-      if (window.electronAPI) {
-        let inputValue = e.target.checked
-        window.electronAPI.saveStoreData(StoreDataKey.IsKeepRatio, inputValue)
-      }
-    },
-    /**
-     * 出力パス変更
-     */
-    onChangeOutputPath(e: any) {
-      if (window.electronAPI) {
-        let inputValue = e.target.value
-        window.electronAPI.saveStoreData(StoreDataKey.OutputPath, inputValue)
-      }
-    },
-    /**
-     * リサイズしたbase64データを取得
-     * https://qiita.com/komakomako/items/8efd4184f6d7cf1363f2
-     */
-    onGetResizeImageBase64(image: HTMLImageElement, width: number, height: number) {
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const context = canvas.getContext('2d')
-      if (!context) {
-        return ''
-      }
-      context.drawImage(image, 0, 0, width, height)
-      const base64 = canvas.toDataURL('image/png')
-      return base64
-    },
-    /**
-     * リサイズした画像ファイルを保存
-     */
-    async onSaveFile() {
-      if (!this.image) {
-        this.message = '画像を読み込んでいません'
-        return
-      }
-      if (!this.outputPath) {
-        this.message = '出力フォルダが定義されていません'
-        return
-      }
-      if (!window.electronAPI) {
-        this.message = 'ブラウザ上でファイル出力はサポートしていません'
-        return
-      }
-
-      this.message = ''
-      let outputDirPath: string = this.outputPath
-      if (outputDirPath.endsWith('/')) {
-        outputDirPath = outputDirPath.slice(0, -1)
-      }
-      if (this.imageExtention == 'gif') {
-        // gifはリサイズできないのでファイルコピー
-        const fromPath = this.imagePath
-        const fileName = this.imageName.split('.')[0] + '.gif'
-        const toPath = outputDirPath + '/' + fileName
-        window.electronAPI.copyFile(fromPath, toPath).then((message) => (this.message = message))
-      } else {
-        // それ以外はpng形式でリサイズして保存
-        const fileName = this.imageName.split('.')[0] + '.png'
-        const data = this.onGetResizeImageBase64(this.image, this.imageWidth, this.imageHeight)
-        window.electronAPI.savePngFile(outputDirPath, fileName, data).then((message) => (this.message = message))
-      }
-    },
-  },
+onMounted(() => {
+  loadStoreData()
 })
+
+/**
+ * オリジナル画像データ
+ */
+const originalImage = reactive({
+  name: '',
+  extention: '',
+  path: '',
+  ratio: 0,
+  element: null,
+})
+
+/**
+ * リサイズ画像情報
+ */
+const resizeImageSrc = ref('')
+const resizeImageWidth = ref(0)
+const resizeImageHeight = ref(0)
+
+/**
+ * ファイルドロップ処理
+ */
+const onDropFile = (event: DragEvent) => {
+  if (!event?.dataTransfer) {
+    return
+  }
+  if (event.dataTransfer.files.length === 0) {
+    return
+  }
+  const file = event.dataTransfer.files[0]
+  onSetPreviewImage(file)
+}
+
+/**
+ * プレビュー画像の設定
+ */
+const onSetPreviewImage = (file: File) => {
+  // 画像情報設定
+  originalImage.name = file.name
+  originalImage.extention = file.name.split('.').pop()
+  originalImage.path = file.path
+  originalImage.element = null
+
+  resizeImageSrc.value = URL.createObjectURL(file)
+
+  // gifはリサイズできないメッセージ
+  message.value = ''
+  if (originalImage.extention == 'gif') {
+    message.value = 'gif形式のファイルはリサイズに対応していません'
+  }
+
+  // 画像読み込んで幅を設定
+  const reader = new FileReader()
+  reader.onloadend = () => {
+    if (!reader.result || !(typeof reader.result == 'string')) {
+      return
+    }
+    let loadImage = new Image()
+    loadImage.src = reader.result
+    loadImage.onload = () => {
+      resizeImageHeight.value = loadImage.naturalHeight
+      resizeImageWidth.value = loadImage.naturalWidth
+      // 横のサイズをベースに比率を計算
+      originalImage.ratio = resizeImageWidth.value / resizeImageHeight.value
+      originalImage.element = loadImage
+    }
+  }
+  reader.readAsDataURL(file)
+}
+
+/**
+ * 画像最大サイズ
+ */
+const IMAGE_SIZE_MAX_VALUE = 1200
+
+/**
+ * 画像サイズ変更処理
+ */
+const onChangeWidthValue = (e: any) => {
+  if (!originalImage.element) {
+    resizeImageWidth.value = 0
+    return
+  }
+  let inputValue = e.target.value
+  if (inputValue >= IMAGE_SIZE_MAX_VALUE) {
+    inputValue = IMAGE_SIZE_MAX_VALUE
+  }
+  resizeImageWidth.value = inputValue
+  if (isKeepRatio.value) {
+    resizeImageHeight.value = resizeImageWidth.value / originalImage.ratio
+  }
+  const base64 = onGetResizeImageBase64(originalImage.element, resizeImageWidth.value, resizeImageHeight.value)
+  resizeImageSrc.value = base64
+}
+const onChangeHeightValue = (e: any) => {
+  if (!originalImage.element) {
+    resizeImageHeight.value = 0
+    return
+  }
+  let inputValue = e.target.value
+  if (inputValue >= IMAGE_SIZE_MAX_VALUE) {
+    inputValue = IMAGE_SIZE_MAX_VALUE
+  }
+  resizeImageHeight.value = inputValue
+  if (isKeepRatio.value) {
+    resizeImageWidth.value = resizeImageHeight.value * originalImage.ratio
+  }
+  const base64 = onGetResizeImageBase64(originalImage.element, resizeImageWidth.value, resizeImageHeight.value)
+  resizeImageSrc.value = base64
+}
+
+/**
+ * リサイズしたbase64データを取得
+ * https://qiita.com/komakomako/items/8efd4184f6d7cf1363f2
+ */
+const onGetResizeImageBase64 = (image: HTMLImageElement, width: number, height: number) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) {
+    return ''
+  }
+  context.drawImage(image, 0, 0, width, height)
+  const base64 = canvas.toDataURL('image/png')
+  return base64
+}
+
+/**
+ * リサイズした画像ファイルを保存
+ */
+const onSaveFile = () => {
+  if (!originalImage.element) {
+    message.value = '画像を読み込んでいません'
+    return
+  }
+  if (!outputPath.value) {
+    message.value = '出力フォルダが定義されていません'
+    return
+  }
+  if (!window.electronAPI) {
+    message.value = 'ブラウザ上でファイル出力はサポートしていません'
+    return
+  }
+
+  message.value = ''
+  let outputDirPath: string = outputPath.value
+  if (outputDirPath.endsWith('/')) {
+    outputDirPath = outputDirPath.slice(0, -1)
+  }
+  if (originalImage.extention == 'gif') {
+    // gifはリサイズできないのでファイルコピー
+    const fromPath = originalImage.path
+    const fileName = originalImage.name.split('.')[0] + '.gif'
+    const toPath = outputDirPath + '/' + fileName
+    window.electronAPI.copyFile(fromPath, toPath).then((result) => (message.value = result))
+  } else {
+    // それ以外はpng形式でリサイズして保存
+    const fileName = originalImage.name.split('.')[0] + '.png'
+    const data = onGetResizeImageBase64(originalImage.element, resizeImageWidth.value, resizeImageHeight.value)
+    window.electronAPI.savePngFile(outputDirPath, fileName, data).then((result) => (message.value = result))
+  }
+}
+
+/**
+ * 画像の縦横比固定するか？
+ */
+const isKeepRatio = ref(true)
+const onChangeIsKeepRatio = (e: any) => {
+  if (window.electronAPI) {
+    let inputValue = e.target.checked
+    window.electronAPI.saveStoreData(StoreDataKey.IsKeepRatio, inputValue)
+  }
+}
+
+/**
+ * 出力パス
+ */
+const outputPath = ref('')
+const onChangeOutputPath = (e: any) => {
+  if (window.electronAPI) {
+    let inputValue = e.target.value
+    window.electronAPI.saveStoreData(StoreDataKey.OutputPath, inputValue)
+  }
+}
+
+/**
+ * メッセージ
+ */
+const message = ref('')
 </script>
 
 <template>
   <div class="container">
     <div class="container-item image-area" @dragover.prevent @drop.prevent="onDropFile">
-      <img v-if:="imageSrc" class="image-item" :src="imageSrc" />
-      <div v-if:="!imageSrc" class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
+      <img v-if:="resizeImageSrc" class="image-item" :src="resizeImageSrc" />
+      <div v-if:="!resizeImageSrc" class="image-drop-box">画像をドラッグ＆ドロップしてください。</div>
     </div>
-    <label class="container-item image-name-area">{{ imageName }}</label>
+    <label class="container-item image-name-area">{{ originalImage.name }}</label>
     <div class="container-item size-info-area">
       <input
         @input="onChangeWidthValue"
@@ -248,8 +257,8 @@ export default defineComponent({
         min="0"
         maxlength="1200"
         placeholder="width"
-        v-model.number="imageWidth"
-        :disabled="imageExtention == 'gif'"
+        v-model.number="resizeImageWidth"
+        :disabled="originalImage.extention == 'gif'"
       />
       <span class="size-input-value-px">px</span>
       <div class="size-input-value-between">x</div>
@@ -260,8 +269,8 @@ export default defineComponent({
         min="0"
         maxlength="1200"
         placeholder="height"
-        v-model.number="imageHeight"
-        :disabled="imageExtention == 'gif'"
+        v-model.number="resizeImageHeight"
+        :disabled="originalImage.extention == 'gif'"
       />
       <span class="size-input-value-px">px</span>
       <div class="size-input-keep-ratio-area">
