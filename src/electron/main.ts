@@ -139,10 +139,6 @@ ipcMain.handle('loadStoreData', async (event, key: string) => {
   return store.get(key)
 })
 
-ipcMain.handle('getAllStoreData', async (event) => {
-  return store
-})
-
 ipcMain.handle('clearStoreData', async (event) => {
   store.clear()
 })

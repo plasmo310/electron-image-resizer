@@ -11,6 +11,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   copyFile: (fromPath: string, toPath: string) => ipcRenderer.invoke('copyFile', fromPath, toPath),
   saveStoreData: (key: string, value: any) => ipcRenderer.invoke('saveStoreData', key, value),
   loadStoreData: (key: string) => ipcRenderer.invoke('loadStoreData', key),
-  getAllStoreData: () => ipcRenderer.invoke('getAllStoreData'),
   clearStoreData: () => ipcRenderer.invoke('clearStoreData'),
 })

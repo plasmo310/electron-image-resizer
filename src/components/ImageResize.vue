@@ -1,28 +1,22 @@
 <script setup lang="ts">
 import { defineComponent, onMounted, reactive, Ref, ref } from 'vue'
+import { useElectronApi } from '../api/electron-api'
 
-/**
- * Electronメインプロセス側に定義した処理
- * windowオブジェクトに設定しているため、型定義を拡張する必要がある
- */
-export interface IElectronAPI {
-  saveFile: (fileDir: string, fileName: string, data: string) => Promise<string>
-  savePngFile: (fileDir: string, fileName: string, data: string) => Promise<string>
-  copyFile: (fromPath: string, toPath: string) => Promise<string>
-  saveStoreData: (key: string, value: any) => Promise<void>
-  loadStoreData: (key: string) => Promise<any>
-  getAllStoreData: () => Promise<void>
-  clearStoreData: () => Promise<void>
-}
+const electronApi = useElectronApi()
+
 declare global {
-  interface Window {
-    electronAPI: IElectronAPI
-  }
   interface File {
     path: string
   }
 }
 
+onMounted(() => {
+  loadAllStoreData()
+})
+
+/**
+ * 保存データキー
+ */
 const StoreDataKey = {
   IsKeepRatio: 'IsKeepRatio',
   OutputPath: 'OutputPath',
@@ -31,25 +25,19 @@ const StoreDataKey = {
 /**
  * 保存データロード処理
  */
-const loadStoreData = () => {
+const loadAllStoreData = () => {
   // 保存されているデータがあれば設定する
-  if (window.electronAPI) {
-    window.electronAPI.loadStoreData(StoreDataKey.IsKeepRatio).then((storeData) => {
-      if (storeData != undefined) {
-        isKeepRatio.value = storeData
-      }
-    })
-    window.electronAPI.loadStoreData(StoreDataKey.OutputPath).then((storeData) => {
-      if (storeData != undefined) {
-        outputPath.value = storeData
-      }
-    })
-  }
+  electronApi.loadStoreData(StoreDataKey.IsKeepRatio, (storeData) => {
+    if (storeData != undefined) {
+      isKeepRatio.value = storeData
+    }
+  })
+  electronApi.loadStoreData(StoreDataKey.OutputPath, (storeData) => {
+    if (storeData != undefined) {
+      outputPath.value = storeData
+    }
+  })
 }
-
-onMounted(() => {
-  loadStoreData()
-})
 
 /**
  * オリジナル画像データ
@@ -190,10 +178,6 @@ const onSaveFile = () => {
     message.value = '出力フォルダが定義されていません'
     return
   }
-  if (!window.electronAPI) {
-    message.value = 'ブラウザ上でファイル出力はサポートしていません'
-    return
-  }
 
   message.value = ''
   let outputDirPath: string = outputPath.value
@@ -205,12 +189,12 @@ const onSaveFile = () => {
     const fromPath = originalImage.path
     const fileName = originalImage.name.split('.')[0] + '.gif'
     const toPath = outputDirPath + '/' + fileName
-    window.electronAPI.copyFile(fromPath, toPath).then((result) => (message.value = result))
+    electronApi.copyFile(fromPath, toPath, (result) => (message.value = result))
   } else {
     // それ以外はpng形式でリサイズして保存
     const fileName = originalImage.name.split('.')[0] + '.png'
     const data = onGetResizeImageBase64(originalImage.element, resizeImageWidth.value, resizeImageHeight.value)
-    window.electronAPI.savePngFile(outputDirPath, fileName, data).then((result) => (message.value = result))
+    electronApi.savePngFile(outputDirPath, fileName, data, (result) => (message.value = result))
   }
 }
 
@@ -219,10 +203,8 @@ const onSaveFile = () => {
  */
 const isKeepRatio = ref(true)
 const onChangeIsKeepRatio = (e: any) => {
-  if (window.electronAPI) {
-    let inputValue = e.target.checked
-    window.electronAPI.saveStoreData(StoreDataKey.IsKeepRatio, inputValue)
-  }
+  let inputValue = e.target.checked
+  electronApi.saveStoreData(StoreDataKey.IsKeepRatio, inputValue)
 }
 
 /**
@@ -230,10 +212,8 @@ const onChangeIsKeepRatio = (e: any) => {
  */
 const outputPath = ref('')
 const onChangeOutputPath = (e: any) => {
-  if (window.electronAPI) {
-    let inputValue = e.target.value
-    window.electronAPI.saveStoreData(StoreDataKey.OutputPath, inputValue)
-  }
+  let inputValue = e.target.value
+  electronApi.saveStoreData(StoreDataKey.OutputPath, inputValue)
 }
 
 /**
