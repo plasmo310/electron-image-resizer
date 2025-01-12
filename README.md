@@ -20,8 +20,8 @@
     * gif
     
 * 確認済のOS環境
-  * 機種：MacBook Pro M2
-  * OS：MacOS 13.3.1
+  * MacOS 13.3.1
+  * Windows 11
 
 ## 使い方
 
